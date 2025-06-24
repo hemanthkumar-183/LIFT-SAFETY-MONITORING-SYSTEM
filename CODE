@@ -1,0 +1,73 @@
+#define CURRENT_SENSOR A0
+#define PIR_SENSOR 2
+
+#define CURRENT_LED 12  
+#define MOTION_LED 11   
+
+const float VCC = 5.0;
+const int model = 2;  // 0: 5A, 1: 20A, 2: 30A ACS712
+
+float cutOffLimit = 1.01;
+
+float sensitivity[] = {
+  0.185,  // ACS712 5A
+  0.100,  // ACS712 20A
+  0.066   // ACS712 30A
+};
+
+const float QOV = 0.5 * VCC;
+float voltage;
+int state = LOW;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(PIR_SENSOR, INPUT);
+  pinMode(CURRENT_LED, OUTPUT);
+  pinMode(MOTION_LED, OUTPUT);
+  digitalWrite(CURRENT_LED, LOW);
+  digitalWrite(MOTION_LED, LOW);
+  Serial.println("System Initialized. Stabilizing PIR...");
+  delay(30000); // Allow PIR to stabilize
+}
+
+void loop() {
+  int analogValue = analogRead(CURRENT_SENSOR);// Read and print raw analog value for debugging
+  Serial.print("Analog Read: ");
+  Serial.println(analogValue);
+
+  // Convert to voltage and current
+  float voltageRaw = (VCC / 1023.0) * analogValue;
+  voltage = voltageRaw - QOV + 0.012;
+  float current = voltage / sensitivity[model];
+
+  Serial.print("Current: ");
+  Serial.print(current);
+  Serial.println(" A");
+
+  if (abs(current) > cutOffLimit) {
+    Serial.println("⚠ High Current Detected!");
+    digitalWrite(CURRENT_LED, HIGH);
+  } else {
+    digitalWrite(CURRENT_LED, LOW);
+  }
+
+  int pirValue = digitalRead(PIR_SENSOR);// Read PIR sensor
+  Serial.print("PIR Value: ");
+  Serial.println(pirValue);
+
+  if (pirValue == HIGH) {
+    if (state == LOW) {
+      Serial.println("🚨 Motion Detected!");
+      state = HIGH;
+    }
+    digitalWrite(MOTION_LED, HIGH);
+  } else {
+    if (state == HIGH) {
+      Serial.println("No Motion.");
+      state = LOW;
+    }
+    digitalWrite(MOTION_LED, LOW);
+  }
+
+  delay(2000); // Wait between readings
+}
